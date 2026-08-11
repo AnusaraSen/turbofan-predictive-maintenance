@@ -77,7 +77,7 @@ def normalize_by_regime(df: pd.DataFrame, norm_stats: pd.DataFrame, sensor_colum
     # to the right mean/std from norm_stats without a slow row-by-row loop
     return df
 
-def select_informative_sensors(normalized_train_df: pd.DataFrame, sensor_columns: list, variance_threshold: float = 0.001):
+def select_informative_sensors(normalized_train_df: pd.DataFrame, sensor_columns: list, variance_threshold: float = 0.01):
     # TODO: compute .var() on normalized_train_df[sensor_columns]
     sensor_variances = normalized_train_df[sensor_columns].var()
 
