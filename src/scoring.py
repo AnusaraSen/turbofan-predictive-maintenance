@@ -3,8 +3,9 @@ import numpy as np
 def rmse(y_true, y_pred) -> float:
     y_true = np.asarray(y_true, dtype=float)
     y_pred = np.asarray(y_pred, dtype=float)
-    # TODO: standard RMSE formula
-    return ...
+    
+    mse = np.mean((y_true - y_pred) ** 2)
+    return np.sqrt(mse)
 
 
 def phm08_score(y_true, y_pred) -> float:
@@ -15,15 +16,16 @@ def phm08_score(y_true, y_pred) -> float:
     # TODO: apply the asymmetric formula above, per-element
     # hint: build a boolean mask for d < 0 vs d >= 0, apply the two
     # different exp formulas to each subset, then sum everything
-
-    return ...
-
+    score = np.sum(np.where(d < 0, np.exp(-d / 13) - 1, np.exp(d / 10) - 1))
+    return score
 
 def evaluate(y_true, y_pred) -> dict:
     # TODO: return both metrics together, plus maybe n_units, for a results table
+    rmse_value = rmse(y_true, y_pred)
+    phm08_value = phm08_score(y_true, y_pred)
     return {
-        "RMSE": ...,
-        "PHM08_score": ...,
+        "RMSE": rmse_value,
+        "PHM08_score": phm08_value,
     }
 
 
