@@ -1,4 +1,5 @@
 import numpy as np
+import pandas as pd
 
 def rmse(y_true, y_pred) -> float:
     y_true = np.asarray(y_true, dtype=float)
@@ -18,6 +19,28 @@ def phm08_score(y_true, y_pred) -> float:
     # different exp formulas to each subset, then sum everything
     score = np.sum(np.where(d < 0, np.exp(-d / 13) - 1, np.exp(d / 10) - 1))
     return score
+
+def phm08_per_engine(y_true, y_pred, unit_ids):
+    y_true = np.asarray(y_true, dtype=float)
+    y_pred = np.asarray(y_pred, dtype=float)
+    d = y_pred - y_true
+
+    # TODO: compute the per-element score (same formula as phm08_score,
+    # but WITHOUT summing at the end)
+    per_element_score = np.where(d < 0, np.exp(-d / 13) - 1, np.exp(d / 10) - 1)
+
+    # TODO: build a small DataFrame with unit_id, true RUL, predicted RUL,
+    # d (the signed error), and the per-engine phm08 contribution
+    # so you can sort/inspect it directly
+    result_df = pd.DataFrame({
+        "unit_id": unit_ids,
+        "true_RUL": y_true,
+        "predicted_RUL": y_pred,
+        "d": d,
+        "phm08_contribution": per_element_score
+    })
+
+    return result_df
 
 def evaluate(y_true, y_pred) -> dict:
     # TODO: return both metrics together, plus maybe n_units, for a results table
