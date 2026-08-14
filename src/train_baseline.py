@@ -85,13 +85,13 @@ def run_baseline_training(dataset_name="FD001"):
 
     preds = model.predict(X_val)
     per_engine_df = phm08_per_engine(y_val, preds, simulated_val_df["unit_number"])
+    metrics = evaluate(y_val, preds)
 
     # return everything you might want to inspect later, not just the model
-    return model, per_engine_df, evaluate(y_val, preds)
-
+    return model, per_engine_df, metrics, kmeans, informative_sensors, feature_cols
 
 if __name__ == "__main__":
-    model, per_engine_df, metrics = run_baseline_training()
+    model, per_engine_df, metrics, kmeans, informative_sensors, feature_cols = run_baseline_training()
     print(metrics)
     print(per_engine_df.sort_values("phm08", ascending=False))
 
