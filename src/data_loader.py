@@ -54,6 +54,7 @@ def load_rul_data(dataset_name: str = "FD001") -> pd.DataFrame:
 
 if __name__ == "__main__":
 
+    """
     train_df = load_train_data("FD001")
     test_df = load_test_data("FD001")
     rul_df = load_rul_data("FD001")
@@ -62,3 +63,14 @@ if __name__ == "__main__":
     assert test_df["unit_number"].nunique() == 100, "Expected 100 engines in FD001 test set"
     assert len(rul_df) == 100, "Expected 100 RUL values in FD001"
     print("All checks passed.")
+    """
+    print("Loading FD002 data...")
+
+    train_df = load_train_data("FD002")
+    test_df = load_test_data("FD002")
+    rul_df = load_rul_data("FD002")
+
+    
+
+    print(train_df.shape)
+    print(train_df["unit_number"].nunique())  # README says 260 train units

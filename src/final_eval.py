@@ -9,8 +9,8 @@ import pandas as pd
 from train_lstm import train_lstm_model
 
 def evaluate_gbr_on_real_test(gbr_model, kmeans, informative_sensors, feature_cols, dataset_name="FD001"):
-    test_df = load_test_data("FD001")
-    rul_df = load_rul_data("FD001")
+    test_df = load_test_data(dataset_name)
+    rul_df = load_rul_data(dataset_name)
 
     # TODO: assign_regimes using the ALREADY-FITTED kmeans (don't refit)
     test_df = assign_regimes(test_df, kmeans)
@@ -35,8 +35,8 @@ def evaluate_gbr_on_real_test(gbr_model, kmeans, informative_sensors, feature_co
 
 
 def evaluate_lstm_on_real_test(lstm_model, kmeans, norm_stats, informative_sensors, window_length=30, dataset_name="FD001"):
-    test_df = load_test_data("FD001")
-    rul_df = load_rul_data("FD001")
+    test_df = load_test_data(dataset_name)
+    rul_df = load_rul_data(dataset_name)
 
     # TODO: assign_regimes using the ALREADY-FITTED kmeans
     test_df = assign_regimes(test_df, kmeans)
@@ -61,21 +61,23 @@ def evaluate_lstm_on_real_test(lstm_model, kmeans, norm_stats, informative_senso
 
 if __name__ == "__main__":
     
-    gbr_model, per_engine_df, metrics, kmeans, informative_sensors, feature_cols = run_baseline_training(dataset_name="FD001")
+    gbr_model, per_engine_df, metrics, kmeans, informative_sensors, feature_cols = run_baseline_training(dataset_name="FD003")
     
     gbr_metrics, gbr_per_engine = evaluate_gbr_on_real_test(
-    gbr_model, kmeans, informative_sensors, feature_cols, dataset_name="FD001")
+    gbr_model, kmeans, informative_sensors, feature_cols, dataset_name="FD003")
     
     print("Real test set results with GBR:")
     print(gbr_metrics)
     print(gbr_per_engine.sort_values("phm08_contribution", ascending=False))
 
-    lstm_model, lstm_val_per_engine, lstm_val_metrics, kmeans, informative_sensors, history, norm_stats = train_lstm_model()
+    lstm_model, lstm_val_per_engine, lstm_val_metrics, kmeans, informative_sensors, history, norm_stats = train_lstm_model(dataset_name="FD003")
 
     lstm_test_metrics, lstm_test_per_engine = evaluate_lstm_on_real_test(
-        lstm_model, kmeans, norm_stats, informative_sensors, window_length=30, dataset_name="FD001"
+        lstm_model, kmeans, norm_stats, informative_sensors, window_length=30, dataset_name="FD003"
     )
 
     print("Internal validation results:", lstm_val_metrics)
     print("Real test set results:", lstm_test_metrics)
     print(lstm_test_per_engine.sort_values("phm08_contribution", ascending=False))
+
+    

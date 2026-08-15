@@ -90,9 +90,9 @@ def select_informative_sensors(normalized_train_df: pd.DataFrame, sensor_columns
 if __name__ == "__main__":
     
 
-    train_df = load_train_data("FD001")
+    train_df = load_train_data("FD002")
     train_df = compute_rul(train_df)
-
+    """
     kmeans = fit_regime_clusters(train_df, n_regimes=1)
     train_df = assign_regimes(train_df, kmeans)
 
@@ -106,3 +106,14 @@ if __name__ == "__main__":
     # normalization still happens, just after selection, and isn't what selection is based on
     norm_stats = fit_regime_norm_stats(train_df, sensor_columns)
     normalized_train_df = normalize_by_regime(train_df, norm_stats, sensor_columns)
+    """
+    print(train_df[["op_setting_1", "op_setting_2", "op_setting_3"]].describe())
+
+    # rough check: round and count unique combinations
+    rounded = train_df[["op_setting_1", "op_setting_2"]].round(1)
+    print(rounded.drop_duplicates().shape)
+     
+    kmeans = fit_regime_clusters(train_df, n_regimes=6)
+    train_df = assign_regimes(train_df, kmeans)
+
+    print(train_df["regime_id"].value_counts().sort_index())

@@ -10,7 +10,7 @@ from scoring import evaluate, phm08_per_engine
 
 
 
-def build_lstm_model(window_length, n_features):
+def build_lstm_model(window_length, n_features, dropout_rate=0.2, lstm_units_1=64, lstm_units_2=32):
     # TODO: first LSTM layer, 64 units, return_sequences=True (so the next LSTM layer gets a full sequence, not just one vector)
     # TODO: dropout layer
     # TODO: second LSTM layer, 32 units, return_sequences=False (default - collapses to one vector, since this is the last recurrent layer)
@@ -19,10 +19,10 @@ def build_lstm_model(window_length, n_features):
     
     model = Sequential([
         layers.Input(shape=(window_length, n_features)),
-        layers.LSTM(64, return_sequences=True),
-        layers.Dropout(0.2),
-        layers.LSTM(32, return_sequences=False),
-        layers.Dropout(0.2),
+        layers.LSTM(lstm_units_1, return_sequences=True),
+        layers.Dropout(dropout_rate),
+        layers.LSTM(lstm_units_2, return_sequences=False),
+        layers.Dropout(dropout_rate),
         layers.Dense(1)
     ])
     model.compile(optimizer="adam", loss="mse", metrics=["mae"])
@@ -60,7 +60,9 @@ def train_lstm_model(dataset_name="FD001", window_length=30, test_size=0.2, rand
     X_train, y_train = build_train_sequences(train_units_df, informative_sensors, window_length)
     X_val, y_val = build_train_sequences(val_units_df, informative_sensors, window_length)
 
+    model_v2 = build_lstm_model(window_length=30, n_features=len(informative_sensors), lstm_units_1=64, lstm_units_2=32, dropout_rate=0.3)
     model = build_lstm_model(window_length=window_length, n_features=len(informative_sensors))
+
     early_stop = EarlyStopping(monitor="val_loss", patience=5, restore_best_weights=True)
 
     history = model.fit(
