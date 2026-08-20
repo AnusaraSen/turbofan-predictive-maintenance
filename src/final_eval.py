@@ -1,3 +1,5 @@
+import joblib
+
 from data_loader import load_test_data, load_rul_data, load_train_data
 from preprocessing import assign_regimes, fit_regime_norm_stats, normalize_by_regime, fit_regime_clusters
 from feature_engineering import build_baseline_features
@@ -7,6 +9,8 @@ from train_baseline import get_last_cycle_per_unit, run_baseline_training
 import pandas as pd
 
 from train_lstm import train_lstm_model
+from pathlib import Path
+
 
 def evaluate_gbr_on_real_test(gbr_model, kmeans, informative_sensors, feature_cols, dataset_name="FD001"):
     test_df = load_test_data(dataset_name)
@@ -81,7 +85,7 @@ def evaluate_lstm_on_real_test(lstm_model, kmeans, norm_stats, informative_senso
     return metrics, per_engine_df
 
 if __name__ == "__main__":
-    dataset_name = "FD004"
+    dataset_name = "FD001"
 
     gbr_model, gbr_per_engine_val, gbr_metrics_val, kmeans_gbr, informative_sensors_gbr, feature_cols = run_baseline_training(dataset_name=dataset_name)
 
@@ -98,10 +102,10 @@ if __name__ == "__main__":
         lstm_model, kmeans_lstm, norm_stats, informative_sensors_lstm, window_length=30, dataset_name=dataset_name
     )
 
-    
-
     print("LSTM internal validation results:", lstm_val_metrics)
     print("LSTM real test set results:", lstm_test_metrics)
     print(lstm_test_per_engine.sort_values("phm08_contribution", ascending=False))
+
+   
 
     
