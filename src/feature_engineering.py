@@ -66,15 +66,19 @@ def build_baseline_features(
 
 
 if __name__ == "__main__":
-    train_df = load_train_data("FD001")
+    train_df = load_train_data("FD002")
     train_df = compute_rul(train_df)
 
-    kmeans = fit_regime_clusters(train_df, n_regimes=1)
+    kmeans = fit_regime_clusters(train_df, n_regimes=6)
     train_df = assign_regimes(train_df, kmeans)
-
+    """
     all_sensor_columns = [col for col in train_df.columns if col.startswith("sensor")]
     informative_sensors, dropped_sensors = select_informative_sensors(train_df, all_sensor_columns)
     print("Using", len(informative_sensors), "informative sensors, dropped:", dropped_sensors)
 
     featured_df = build_baseline_features(train_df, informative_sensors)
     print(featured_df.shape)
+    """
+    all_sensors = [f"sensor_{i}" for i in range(1, 22)]
+    informative_sensors, dropped_sensors = select_informative_sensors(train_df, all_sensors)
+    print("FD002 dropped:", sorted(dropped_sensors, key=lambda x: int(x.split('_')[1])))

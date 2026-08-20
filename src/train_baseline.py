@@ -5,6 +5,7 @@ from data_loader import load_train_data
 from preprocessing import assign_regimes, fit_regime_clusters, compute_rul, select_informative_sensors
 from feature_engineering import build_baseline_features
 from scoring import evaluate, phm08_per_engine
+from config import DATASET_CONFIG
 
 def split_by_unit(df, test_size=0.2, random_seed=42):
 
@@ -62,11 +63,12 @@ def simulate_test_truncation(df, random_seed=42):
 
 
 
-def run_baseline_training(dataset_name="FD001"):
+def run_baseline_training(dataset_name="FD004"):
     train_df = load_train_data(dataset_name)
     train_df = compute_rul(train_df)
 
-    kmeans = fit_regime_clusters(train_df, n_regimes=1)
+    n_regimes = DATASET_CONFIG[dataset_name]["n_regimes"]
+    kmeans = fit_regime_clusters(train_df, n_regimes=n_regimes)
     train_df = assign_regimes(train_df, kmeans)
 
     all_sensor_columns = [col for col in train_df.columns if col.startswith("sensor")]
@@ -87,11 +89,21 @@ def run_baseline_training(dataset_name="FD001"):
     per_engine_df = phm08_per_engine(y_val, preds, simulated_val_df["unit_number"])
     metrics = evaluate(y_val, preds)
 
+    """
+    print(train_df.shape)  # confirm (53759, 26) or however many columns you have now
+    print(train_df["unit_number"].nunique())  # should be 260, not 100
+
+    lifespans = train_df.groupby("unit_number")["time_cycles"].max()
+    print("Shortest engine life:", lifespans.min())
+    print("Engines shorter than 30:", (lifespans < 30).sum())
+    print("Unique regimes assigned:", train_df["regime_id"].nunique())
+    """
+
     # return everything you might want to inspect later, not just the model
     return model, per_engine_df, metrics, kmeans, informative_sensors, feature_cols
 
 if __name__ == "__main__":
     model, per_engine_df, metrics, kmeans, informative_sensors, feature_cols = run_baseline_training()
     print(metrics)
-    print(per_engine_df.sort_values("phm08", ascending=False))
+    print(per_engine_df.sort_values("phm08_contribution", ascending=False))
 

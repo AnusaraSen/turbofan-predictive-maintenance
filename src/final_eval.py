@@ -23,14 +23,27 @@ def evaluate_gbr_on_real_test(gbr_model, kmeans, informative_sensors, feature_co
     X_test = test_df[feature_cols]
     test_df["predicted_RUL"] = gbr_model.predict(X_test)
     # TODO: merge predictions with rul_df on unit_number (NOT row order)
-    merged_df = test_df.merge(rul_df, on="unit_number", how="left")
+    gbr_merged_df = test_df.merge(rul_df, on="unit_number", how="left")
     # TODO: evaluate(true_RUL, predicted_RUL), and phm08_per_engine(...)    
-    metrics = evaluate(merged_df["RUL"], merged_df["predicted_RUL"])
-    y_true, y_pred, unit_ids = merged_df["RUL"], merged_df["predicted_RUL"], merged_df["unit_number"]
+    metrics = evaluate(gbr_merged_df["RUL"], gbr_merged_df["predicted_RUL"])
+    y_true, y_pred, unit_ids = gbr_merged_df["RUL"], gbr_merged_df["predicted_RUL"], gbr_merged_df["unit_number"]
     per_engine_df = phm08_per_engine(y_true, y_pred, unit_ids)
 
+    '''
+    Print evaluation metrics
+    
     print(merged_df["RUL"].isna().sum())  # should be 0, no missing true RULs
-  
+
+    print(merged_df["RUL"].describe())
+    print("Test engines with true RUL > 125:", (merged_df["RUL"] > 125).sum())
+    print(merged_df[merged_df["RUL"] > 125][["unit_number", "RUL", "predicted_RUL"]])
+    '''
+
+    gbr_capped_ok = gbr_merged_df[gbr_merged_df["RUL"] <= 125]
+    gbr_capped_bad = gbr_merged_df[gbr_merged_df["RUL"] > 125]
+    print("GBR, within cap (n={}):".format(len(gbr_capped_ok)), evaluate(gbr_capped_ok["RUL"], gbr_capped_ok["predicted_RUL"]))
+    print("GBR, beyond cap (n={}):".format(len(gbr_capped_bad)), evaluate(gbr_capped_bad["RUL"], gbr_capped_bad["predicted_RUL"]))
+
     return metrics, per_engine_df
 
 
@@ -51,33 +64,44 @@ def evaluate_lstm_on_real_test(lstm_model, kmeans, norm_stats, informative_senso
     # TODO: merge with rul_df on unit_number (build_test_sequences returns unit_ids
     #        in the array - use that to build a small DataFrame first, then merge)
     pred_df = pd.DataFrame({"unit_number": unit_ids, "predicted_RUL": preds})
-    merged_df = pred_df.merge(rul_df, on="unit_number", how="left")
+    lstm_merged_df = pred_df.merge(rul_df, on="unit_number", how="left")
     # TODO: evaluate(...), phm08_per_engine(...)
-    metrics = evaluate(merged_df["RUL"], merged_df["predicted_RUL"])
-    y_true, y_pred, unit_ids = merged_df["RUL"], merged_df["predicted_RUL"], merged_df["unit_number"]
+    metrics = evaluate(lstm_merged_df["RUL"], lstm_merged_df["predicted_RUL"])
+    y_true, y_pred, unit_ids = lstm_merged_df["RUL"], lstm_merged_df["predicted_RUL"], lstm_merged_df["unit_number"]
     per_engine_df = phm08_per_engine(y_true, y_pred, unit_ids)
+
+    
+    # LSTM
+    lstm_capped_ok = lstm_merged_df[lstm_merged_df["RUL"] <= 125]
+    lstm_capped_bad = lstm_merged_df[lstm_merged_df["RUL"] > 125]
+    print("LSTM, within cap (n={}):".format(len(lstm_capped_ok)), evaluate(lstm_capped_ok["RUL"], lstm_capped_ok["predicted_RUL"]))
+    print("LSTM, beyond cap (n={}):".format(len(lstm_capped_bad)), evaluate(lstm_capped_bad["RUL"], lstm_capped_bad["predicted_RUL"]))
+        
 
     return metrics, per_engine_df
 
 if __name__ == "__main__":
-    
-    gbr_model, per_engine_df, metrics, kmeans, informative_sensors, feature_cols = run_baseline_training(dataset_name="FD003")
-    
-    gbr_metrics, gbr_per_engine = evaluate_gbr_on_real_test(
-    gbr_model, kmeans, informative_sensors, feature_cols, dataset_name="FD003")
-    
-    print("Real test set results with GBR:")
-    print(gbr_metrics)
-    print(gbr_per_engine.sort_values("phm08_contribution", ascending=False))
+    dataset_name = "FD004"
 
-    lstm_model, lstm_val_per_engine, lstm_val_metrics, kmeans, informative_sensors, history, norm_stats = train_lstm_model(dataset_name="FD003")
+    gbr_model, gbr_per_engine_val, gbr_metrics_val, kmeans_gbr, informative_sensors_gbr, feature_cols = run_baseline_training(dataset_name=dataset_name)
+
+    gbr_test_metrics, gbr_test_per_engine = evaluate_gbr_on_real_test(
+        gbr_model, kmeans_gbr, informative_sensors_gbr, feature_cols, dataset_name=dataset_name
+    )
+    print("Real test set results with GBR:")
+    print(gbr_test_metrics)
+    print(gbr_test_per_engine.sort_values("phm08_contribution", ascending=False))
+
+    lstm_model, lstm_val_per_engine, lstm_val_metrics, kmeans_lstm, informative_sensors_lstm, history, norm_stats = train_lstm_model(dataset_name=dataset_name)
 
     lstm_test_metrics, lstm_test_per_engine = evaluate_lstm_on_real_test(
-        lstm_model, kmeans, norm_stats, informative_sensors, window_length=30, dataset_name="FD003"
+        lstm_model, kmeans_lstm, norm_stats, informative_sensors_lstm, window_length=30, dataset_name=dataset_name
     )
 
-    print("Internal validation results:", lstm_val_metrics)
-    print("Real test set results:", lstm_test_metrics)
+    
+
+    print("LSTM internal validation results:", lstm_val_metrics)
+    print("LSTM real test set results:", lstm_test_metrics)
     print(lstm_test_per_engine.sort_values("phm08_contribution", ascending=False))
 
     

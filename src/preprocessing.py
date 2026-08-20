@@ -78,10 +78,9 @@ def normalize_by_regime(df: pd.DataFrame, norm_stats: pd.DataFrame, sensor_colum
     return df
 
 def select_informative_sensors(normalized_train_df: pd.DataFrame, sensor_columns: list, variance_threshold: float = 0.01):
-    # TODO: compute .var() on normalized_train_df[sensor_columns]
-    sensor_variances = normalized_train_df[sensor_columns].var()
+    variances_by_regime = normalized_train_df.groupby("regime_id")[sensor_columns].var()
+    sensor_variances = variances_by_regime.mean(axis=0)
 
-    # TODO: split into two lists - informative (above threshold) and dropped (at/below threshold)
     informative_sensors = sensor_variances[sensor_variances > variance_threshold].index.tolist()
     dropped_sensors = sensor_variances[sensor_variances <= variance_threshold].index.tolist()
 
@@ -117,3 +116,6 @@ if __name__ == "__main__":
     train_df = assign_regimes(train_df, kmeans)
 
     print(train_df["regime_id"].value_counts().sort_index())
+
+
+   
