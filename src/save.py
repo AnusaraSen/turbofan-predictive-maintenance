@@ -12,10 +12,9 @@ if __name__ == "__main__":
 
     for dataset_name in ["FD001", "FD002", "FD003", "FD004"]:
         test_df = load_test_data(dataset_name)
-        sample_units = test_df["unit_number"].unique()[:3]  # first 3 engines as examples
-        sample_df = test_df[test_df["unit_number"].isin(sample_units)]
-        sample_df.to_csv(PROJECT_ROOT / "models" / dataset_name / "sample_engines.csv", index=False)
+        test_df.to_csv(PROJECT_ROOT / "models" / dataset_name / "sample_engines.csv", index=False)
 
+    """
     for dataset_name in ["FD001", "FD002", "FD003", "FD004"]:
         print(f"Saving {dataset_name}...")
         dataset_dir = PROJECT_ROOT / "models" / dataset_name
@@ -34,5 +33,5 @@ if __name__ == "__main__":
         joblib.dump(norm_stats, dataset_dir / "norm_stats.pkl")
         joblib.dump(kmeans_l, dataset_dir / "kmeans_lstm.pkl")
         joblib.dump(informative_sensors_l, dataset_dir / "informative_sensors_lstm.pkl")
-
+        """
     print("Done.")

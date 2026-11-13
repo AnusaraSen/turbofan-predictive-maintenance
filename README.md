@@ -50,25 +50,31 @@ Each C-MAPSS sub-dataset contains multiple turbofan engines, each run from a hea
 
 ## Results
 
-### FD001 (validated, reproduced across multiple runs)
+Evaluated on the official C-MAPSS test sets (`test_FD001`–`FD004` + `RUL_FD001`–`FD004`) using `src/final_eval.py` and recorded in [`results/metrics_summary.csv`](results/metrics_summary.csv):
 
-| Model | RMSE | PHM08 |
-|---|---|---|
-| GBR baseline | 19.48 | 1528.0 |
-| LSTM | 15.63 | 428.5 |
-| **Improvement** | **~20%** | **~72%** |
+### Overall test-set results
 
-### FD004, split by RUL-cap boundary (see Known Limitations)
+| Dataset | Model | RMSE | PHM08 score |
+|---|---|---|---|
+| FD001 | GBR | 19.48 | 1527.99 |
+| FD001 | LSTM | **15.51** | **390.48** |
+| FD002 | GBR | 30.21 | 12624.86 |
+| FD002 | LSTM | **26.32** | **7119.76** |
+| FD003 | GBR | 21.14 | 2096.33 |
+| FD003 | LSTM | **16.00** | **1137.45** |
+| FD004 | GBR | 31.78 | 9873.21 |
+| FD004 | LSTM | **27.67** | **6426.67** |
 
-| Model | RMSE (within cap, n=181) | PHM08 (within cap) |
-|---|---|---|
-| GBR baseline | 22.51 | 3936.6 |
-| LSTM | 14.70 | 845.0 |
-| **Improvement** | **~35%** | **~78%** |
+### Within RUL-cap (`true RUL ≤ 125`) breakdown
 
-### FD002 / FD003
+Because both models are trained on RUL capped at 125 cycles, healthy test engines truncated early (`true RUL > 125`) dominate the blended `FD002`/`FD004` metrics (see [Known Limitations](#known-limitations)). Evaluating strictly within the observable degradation window (`RUL ≤ 125`):
 
-Directionally consistent with FD001/FD004 (LSTM outperforming GBR on both metrics); exact figures are being re-verified for full run-to-run reproducibility after a mid-project fix to LSTM random seeding, and will be finalized here.
+| Dataset | Within-cap units | GBR RMSE | LSTM RMSE | GBR PHM08 | LSTM PHM08 |
+|---|---|---|---|---|---|
+| FD001 | 89 / 100 | 19.13 | **13.93** | 1476.70 | **324.67** |
+| FD002 | 202 / 259 | 19.14 | **15.73** | 2209.84 | **1442.55** |
+| FD003 | 85 / 100 | 21.28 | **15.07** | 2033.21 | **1074.85** |
+| FD004 | 181 / 248 | 22.51 | **14.70** | 3936.57 | **845.02** |
 
 ## Known limitations
 
@@ -85,9 +91,9 @@ An early un-seeded LSTM training run on FD004 produced meaningfully different re
 ## Project structure
 
 ```
-cmapss-rul-prediction/
+turbofan-predictive-maintenance/
 ├── data/
-│   ├── raw/                     # downloaded train/test/RUL .txt files (not committed)
+│   ├── raw/                     # C-MAPSS train/test/RUL .txt files (FD001–FD004)
 │   └── processed/
 ├── src/
 │   ├── config.py                # paths, sensor names, per-dataset metadata (n_regimes, etc.)
@@ -97,35 +103,69 @@ cmapss-rul-prediction/
 │   ├── sequence_builder.py      # sliding-window sequences for the LSTM
 │   ├── scoring.py               # RMSE + PHM08, including per-engine diagnostic breakdown
 │   ├── train_baseline.py        # GBR training, unit-based split, simulated truncation
-│   └── train_lstm.py            # LSTM training, same split/evaluation methodology
-├── models/                      # trained model artifacts (not committed)
+│   ├── train_lstm.py            # LSTM training, same split/evaluation methodology
+│   ├── final_eval.py            # evaluates GBR + LSTM across FD001–FD004 -> results/metrics_summary.csv
+│   ├── save.py                  # exports sample_engines.csv and trained model artifacts
+│   ├── sample_RUL_attach.py     # attaches true RUL to sample_engines.csv
+│   └── generate_json.py         # generates sample JSON request payload for the API
+├── models/                      # saved GBR/LSTM artifacts & sample_engines.csv (FD001–FD004)
+├── results/
+│   ├── metrics_summary.csv      # overall RMSE and PHM08 summary across FD001–FD004
+│   └── plots/
 ├── notebooks/                   # EDA and result-inspection notebooks
-├── api/                         # FastAPI prediction endpoint
-├── dashboard/                   # Streamlit dashboard
-├── tests/                       # smoke tests, incl. synthetic short-engine edge cases
-└── requirements.txt
+├── api/
+│   └── main.py                  # FastAPI /predict and /feature-importance endpoints (with RUL-cap flagging)
+├── dashboard/
+│   └── app.py                   # Streamlit dashboard
+├── tests/
+│   ├── test_pipeline_smoke.py   # unit & API smoke tests (incl. short-engine edge cases)
+│   └── README.md                # test suite documentation
+├── pyproject.toml
+└── uv.lock
 ```
 
-## Setup
+## Setup & Usage
 
-```bash
-python3 -m venv venv
-source venv/bin/activate
-pip install -r requirements.txt
+This project uses Python 3.11+ and `uv` (`pyproject.toml` + `uv.lock`):
+
+```powershell
+uv sync
+.\.venv\Scripts\Activate.ps1
 ```
 
-Download the C-MAPSS dataset from the [NASA Prognostics Center of Excellence data repository](https://phm-datasets.s3.amazonaws.com/NASA/6.+Turbofan+Engine+Degradation+Simulation+Data+Set.zip), and place the 12 extracted `.txt` files (`train_/test_/RUL_` × `FD001`–`FD004`) under `data/raw/`.
+If you need to download the C-MAPSS dataset, fetch it from the [NASA Prognostics Center of Excellence data repository](https://phm-datasets.s3.amazonaws.com/NASA/6.+Turbofan+Engine+Degradation+Simulation+Data+Set.zip) and place the 12 extracted `.txt` files (`train_/test_/RUL_` × `FD001`–`FD004`) under `data/raw/`.
 
-```bash
+```powershell
+# Sanity-check data loading
 cd src
-python3 data_loader.py   # sanity check: prints shape/unit counts for all four sub-datasets
+python data_loader.py
+
+# Evaluate saved models across FD001–FD004 and update results/metrics_summary.csv
+python final_eval.py
+
+# Run unit & API smoke tests (from project root)
+cd ..
+pytest -v
+```
+
+### Run the API & Dashboard
+
+**Terminal 1 — FastAPI backend** (from project root):
+```powershell
+uvicorn api.main:app --reload
+```
+
+**Terminal 2 — Streamlit dashboard** (from `dashboard/`):
+```powershell
+cd dashboard
+streamlit run app.py
 ```
 
 ## Tech stack
 
 **Modeling:** Python, pandas, NumPy, scikit-learn (Gradient Boosting Regressor), TensorFlow/Keras (stacked LSTM)
 **Evaluation:** custom RMSE + PHM08 asymmetric scoring implementation, verified against reference worked examples
-**Deployment:** FastAPI (prediction endpoint), Streamlit (dashboard), Docker
+**Deployment:** FastAPI (prediction endpoint with RUL-cap flagging), Streamlit (dashboard)
 
 ## Engineering notes worth highlighting
 
@@ -138,7 +178,6 @@ A handful of real bugs were caught and fixed during development through delibera
 
 ## Future work
 
-- Finalize re-verified FD002/FD003 LSTM numbers with the seeded training pipeline
-- API-level handling for the RUL-cap boundary (flagging capped predictions rather than returning them as precise estimates)
 - Multi-run statistical reporting (mean ± std) for LSTM results, given observed run-to-run variance
 - Ablation on RUL cap value itself (e.g., 125 vs. 150) as a documented experiment rather than a fixed assumption
+- Containerization (`Dockerfile` / `docker-compose.yml`) for one-command API + dashboard deployment

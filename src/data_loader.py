@@ -70,7 +70,6 @@ if __name__ == "__main__":
     test_df = load_test_data("FD002")
     rul_df = load_rul_data("FD002")
 
-    
-
-    print(train_df.shape)
-    print(train_df["unit_number"].nunique())  # README says 260 train units
+    rul_df = load_rul_data("FD004")
+    true_rul = rul_df[rul_df["unit_number"] == 1]["RUL"].values[0]
+    print("True RUL:", true_rul)        

@@ -5,9 +5,16 @@ description = "Add your description here"
 readme = "README.md"
 requires-python = ">=3.11"
 dependencies = [
+    "fastapi[standard]>=0.141.1",
     "matplotlib>=3.11.1",
     "numpy>=2.4.6",
     "pandas>=3.0.5",
     "scikit-learn>=1.9.0",
+    "streamlit>=1.62.0",
     "tensorflow>=2.21.0",
+]
+
+[dependency-groups]
+dev = [
+    "pytest>=9.2.0",
 ]

@@ -34,10 +34,12 @@ def split_by_unit(df, test_size=0.2, random_seed=42):
 
     return train_df, val_df
 
-def get_feature_columns(df):
-    exclude = ["unit_number", "time_cycles", "RUL", "max_cycle", "regime_id",
-               "op_setting_1", "op_setting_2", "op_setting_3"]
-    
+def get_feature_columns(df, informative_sensors, all_sensor_columns):
+    dropped_sensors = [s for s in all_sensor_columns if s not in informative_sensors]
+    exclude = [
+        "unit_number", "time_cycles", "RUL", "max_cycle", "regime_id",
+        "op_setting_1", "op_setting_2", "op_setting_3",
+    ] + dropped_sensors
     return [col for col in df.columns if col not in exclude]
 
 def get_last_cycle_per_unit(df):
@@ -78,7 +80,7 @@ def run_baseline_training(dataset_name="FD004"):
     train_df, val_df = split_by_unit(featured_df, test_size=0.2, random_seed=42)
     simulated_val_df = simulate_test_truncation(val_df, random_seed=42)
 
-    feature_cols = get_feature_columns(train_df)
+    feature_cols = get_feature_columns(train_df, informative_sensors, all_sensor_columns)
     X_train, y_train = train_df[feature_cols], train_df["RUL"]
     X_val, y_val = simulated_val_df[feature_cols], simulated_val_df["RUL"]
 

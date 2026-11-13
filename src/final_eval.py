@@ -1,15 +1,16 @@
+import argparse
 import joblib
+import keras
+import pandas as pd
 
-from data_loader import load_test_data, load_rul_data, load_train_data
-from preprocessing import assign_regimes, fit_regime_norm_stats, normalize_by_regime, fit_regime_clusters
+from config import DATASET_CONFIG, PROJECT_ROOT
+from data_loader import load_test_data, load_rul_data
+from preprocessing import assign_regimes, normalize_by_regime
 from feature_engineering import build_baseline_features
 from sequence_builder import build_test_sequences
 from scoring import evaluate, phm08_per_engine
 from train_baseline import get_last_cycle_per_unit, run_baseline_training
-import pandas as pd
-
 from train_lstm import train_lstm_model
-from pathlib import Path
 
 
 def evaluate_gbr_on_real_test(gbr_model, kmeans, informative_sensors, feature_cols, dataset_name="FD001"):
@@ -84,28 +85,98 @@ def evaluate_lstm_on_real_test(lstm_model, kmeans, norm_stats, informative_senso
 
     return metrics, per_engine_df
 
+def load_saved_artifacts(dataset_name: str) -> dict:
+    """Load saved GBR and LSTM artifacts for a dataset from models/<dataset_name>/."""
+    dataset_dir = PROJECT_ROOT / "models" / dataset_name
+    return {
+        "gbr_model": joblib.load(dataset_dir / "gbr_model.pkl"),
+        "kmeans_gbr": joblib.load(dataset_dir / "kmeans.pkl"),
+        "informative_sensors_gbr": joblib.load(dataset_dir / "informative_sensors.pkl"),
+        "feature_cols": joblib.load(dataset_dir / "feature_cols.pkl"),
+        "lstm_model": keras.models.load_model(dataset_dir / "lstm_model.keras"),
+        "kmeans_lstm": joblib.load(dataset_dir / "kmeans_lstm.pkl"),
+        "informative_sensors_lstm": joblib.load(dataset_dir / "informative_sensors_lstm.pkl"),
+        "norm_stats": joblib.load(dataset_dir / "norm_stats.pkl"),
+    }
+
+
+def evaluate_all_datasets(
+    datasets: list[str] | None = None,
+    retrain: bool = False,
+    output_path=None,
+) -> pd.DataFrame:
+    """Evaluate GBR and LSTM across datasets and write results/metrics_summary.csv."""
+    if datasets is None:
+        datasets = list(DATASET_CONFIG.keys())
+    if output_path is None:
+        output_path = PROJECT_ROOT / "results" / "metrics_summary.csv"
+
+    rows = []
+    for dataset_name in datasets:
+        print(f"\n=== Evaluating {dataset_name} ===")
+        if retrain:
+            gbr_model, _, _, kmeans_gbr, informative_sensors_gbr, feature_cols = run_baseline_training(
+                dataset_name=dataset_name
+            )
+            lstm_model, _, _, kmeans_lstm, informative_sensors_lstm, _, norm_stats = train_lstm_model(
+                dataset_name=dataset_name
+            )
+        else:
+            arts = load_saved_artifacts(dataset_name)
+            gbr_model = arts["gbr_model"]
+            kmeans_gbr = arts["kmeans_gbr"]
+            informative_sensors_gbr = arts["informative_sensors_gbr"]
+            feature_cols = arts["feature_cols"]
+            lstm_model = arts["lstm_model"]
+            kmeans_lstm = arts["kmeans_lstm"]
+            informative_sensors_lstm = arts["informative_sensors_lstm"]
+            norm_stats = arts["norm_stats"]
+
+        gbr_test_metrics, _ = evaluate_gbr_on_real_test(
+            gbr_model, kmeans_gbr, informative_sensors_gbr, feature_cols, dataset_name=dataset_name
+        )
+        print(f"GBR real test ({dataset_name}): {gbr_test_metrics}")
+        rows.append({
+            "dataset": dataset_name,
+            "model": "GBR",
+            "RMSE": round(float(gbr_test_metrics["RMSE"]), 6),
+            "PHM08_score": round(float(gbr_test_metrics["PHM08_score"]), 6),
+        })
+
+        lstm_test_metrics, _ = evaluate_lstm_on_real_test(
+            lstm_model, kmeans_lstm, norm_stats, informative_sensors_lstm, window_length=30, dataset_name=dataset_name
+        )
+        print(f"LSTM real test ({dataset_name}): {lstm_test_metrics}")
+        rows.append({
+            "dataset": dataset_name,
+            "model": "LSTM",
+            "RMSE": round(float(lstm_test_metrics["RMSE"]), 6),
+            "PHM08_score": round(float(lstm_test_metrics["PHM08_score"]), 6),
+        })
+
+    summary_df = pd.DataFrame(rows, columns=["dataset", "model", "RMSE", "PHM08_score"])
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    summary_df.to_csv(output_path, index=False)
+    print(f"\nSaved metrics summary to {output_path}")
+    return summary_df
+
+
 if __name__ == "__main__":
-    dataset_name = "FD001"
-
-    gbr_model, gbr_per_engine_val, gbr_metrics_val, kmeans_gbr, informative_sensors_gbr, feature_cols = run_baseline_training(dataset_name=dataset_name)
-
-    gbr_test_metrics, gbr_test_per_engine = evaluate_gbr_on_real_test(
-        gbr_model, kmeans_gbr, informative_sensors_gbr, feature_cols, dataset_name=dataset_name
+    parser = argparse.ArgumentParser(description="Evaluate GBR and LSTM on C-MAPSS test sets.")
+    parser.add_argument(
+        "--datasets",
+        nargs="+",
+        default=list(DATASET_CONFIG.keys()),
+        choices=list(DATASET_CONFIG.keys()),
+        help="Datasets to evaluate (default: FD001 FD002 FD003 FD004).",
     )
-    print("Real test set results with GBR:")
-    print(gbr_test_metrics)
-    print(gbr_test_per_engine.sort_values("phm08_contribution", ascending=False))
-
-    lstm_model, lstm_val_per_engine, lstm_val_metrics, kmeans_lstm, informative_sensors_lstm, history, norm_stats = train_lstm_model(dataset_name=dataset_name)
-
-    lstm_test_metrics, lstm_test_per_engine = evaluate_lstm_on_real_test(
-        lstm_model, kmeans_lstm, norm_stats, informative_sensors_lstm, window_length=30, dataset_name=dataset_name
+    parser.add_argument(
+        "--retrain",
+        action="store_true",
+        help="Retrain models from scratch instead of loading saved artifacts from models/.",
     )
+    args = parser.parse_args()
 
-    print("LSTM internal validation results:", lstm_val_metrics)
-    print("LSTM real test set results:", lstm_test_metrics)
-    print(lstm_test_per_engine.sort_values("phm08_contribution", ascending=False))
-
-   
-
-    
+    summary = evaluate_all_datasets(datasets=args.datasets, retrain=args.retrain)
+    print("\nSummary:")
+    print(summary.to_string(index=False))
