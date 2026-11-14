@@ -235,3 +235,68 @@ def test_api_predict_and_feature_importance():
     assert len(fi_resp.json()["features"]) > 0
 
     assert client.get("/feature-importance/FD999").status_code == 400
+
+
+def test_api_phase1_fleet_and_metrics_endpoints():
+    client = TestClient(app)
+
+    health = client.get("/health")
+    assert health.status_code == 200
+    assert health.json()["status"] == "ok"
+
+    metrics = client.get("/metrics")
+    assert metrics.status_code == 200
+    assert len(metrics.json()["metrics"]) == 8
+
+    fleet = client.get("/datasets/FD001/engines")
+    assert fleet.status_code == 200
+    engines = fleet.json()["engines"]
+    assert len(engines) == 100
+    assert {"unit_number", "total_cycles", "gbr_rul", "lstm_rul", "status", "capped"}.issubset(
+        engines[0].keys()
+    )
+    assert isinstance(engines[0]["true_rul"], float)
+
+    detail = client.get("/datasets/FD001/engines/1")
+    assert detail.status_code == 200
+    body = detail.json()
+    assert body["unit_number"] == 1
+    assert len(body["raw_rows"]) == body["total_cycles"]
+    assert "regime_id" in body["raw_rows"][0]
+
+    assert client.get("/datasets/FD001/engines/99999").status_code == 404
+
+    traj = client.post("/predict/trajectory", json={"dataset_name": "FD001", "unit_number": 1})
+    assert traj.status_code == 200
+    pts = traj.json()["points"]
+    assert len(pts) == body["total_cycles"]
+    assert {"time_cycles", "regime_id", "gbr_rul", "lstm_rul", "status", "capped"}.issubset(
+        pts[0].keys()
+    )
+    assert isinstance(pts[-1]["true_rul"], float)
+    assert pts[0]["true_rul"] > pts[-1]["true_rul"]
+
+    # Phase 3 endpoints: /explain/lstm, /predict/batch, /metrics/breakdown
+    readings = _make_api_readings(30)
+    explain = client.post(
+        "/explain/lstm",
+        json={"dataset_name": "FD001", "unit_number": 1, "readings": readings},
+    )
+    assert explain.status_code == 200
+    exp_body = explain.json()
+    assert len(exp_body["cycle_bins"]) == 6
+    assert len(exp_body["matrix"]) == 6 * len(exp_body["sensors"])
+
+    batch_rows = [{**r, "unit_number": 1} for r in readings] + [
+        {**r, "unit_number": 2} for r in readings
+    ]
+    batch = client.post(
+        "/predict/batch",
+        json={"dataset_name": "FD001", "rows": batch_rows},
+    )
+    assert batch.status_code == 200
+    assert len(batch.json()["results"]) == 2
+
+    breakdown = client.get("/metrics/breakdown")
+    assert breakdown.status_code == 200
+    assert len(breakdown.json()["breakdown"]) == 8
