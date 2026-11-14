@@ -76,6 +76,30 @@ Because both models are trained on RUL capped at 125 cycles, healthy test engine
 | FD003 | 85 / 100 | 21.28 | **15.07** | 2033.21 | **1074.85** |
 | FD004 | 181 / 248 | 22.51 | **14.70** | 3936.57 | **845.02** |
 
+## Web Application & Screenshots
+
+In addition to the FastAPI prediction backend, the project includes an interactive **React + TypeScript + Vite + ECharts** web application (`frontend/`) for fleet monitoring, cycle-by-cycle simulation, model explainability, and non-technical onboarding.
+
+### 1. Fleet Triage Board
+Displays all engines in the selected dataset (`FD001`–`FD004`) sorted by urgency (`Urgent < 25`, `Monitor 25–75`, `Healthy ≥ 75`, `Cap 125`), with KPI summary cards, filter pills, unit search, and click-to-inspect navigation.
+
+![Fleet Triage Board](images/fleet%20triage.png)
+
+### 2. Engine Detail & Flight Simulator
+Provides cycle-by-cycle playback (`Play / Pause`, `1x / 5x / 10x` speed, scrubber) with live GBR vs. LSTM vs. True RUL curves, a moving 30-cycle lookback highlight, color-coded operating regime bands (`Raw` vs. `Regime-Normalized`), **What-If** sensor perturbation sliders, GBR feature importances, and an LSTM occlusion sensitivity heatmap.
+
+![Engine Detail & Flight Simulator](images/Engine%20detail.png)
+
+### 3. Model Benchmarks & Alert Threshold Simulator
+Interactive grouped charts comparing GBR and LSTM on **RMSE** and **PHM08** across `FD001`–`FD004` (with an **All Engines vs. Within Cap ≤ 125** toggle) plus a maintenance alert threshold simulator comparing missed late warnings vs. early conservative alerts.
+
+![Model Benchmarks & Alert Threshold Simulator](images/benchmark.png)
+
+### 4. Non-Technical User Guide & Sensor Dictionary
+Plain-English walkthrough of what the project does, how operating regimes, the 125-cycle cap, and GBR/LSTM predictions work, what every KPI card and chart means, and a searchable dictionary for all 21 NASA C-MAPSS sensors (`sensor_1`–`sensor_21`).
+
+![User Guide & Sensor Dictionary](images/guide.png)
+
 ## Known limitations
 
 ### RUL-cap ceiling effect (FD002 / FD004)
@@ -114,12 +138,18 @@ turbofan-predictive-maintenance/
 │   └── plots/
 ├── notebooks/                   # EDA and result-inspection notebooks
 ├── api/
-│   └── main.py                  # FastAPI /predict and /feature-importance endpoints (with RUL-cap flagging)
+│   └── main.py                  # FastAPI endpoints (/predict, /datasets, /metrics, /explain, static frontend)
+├── frontend/
+│   ├── src/                     # React + TypeScript + Tailwind + ECharts web app
+│   └── vercel.json              # Vercel SPA routing config
 ├── dashboard/
-│   └── app.py                   # Streamlit dashboard
+│   └── app.py                   # Legacy Streamlit dashboard
+├── images/                      # Web app screenshots
 ├── tests/
 │   ├── test_pipeline_smoke.py   # unit & API smoke tests (incl. short-engine edge cases)
 │   └── README.md                # test suite documentation
+├── Dockerfile                   # Multi-stage build (React frontend + FastAPI backend)
+├── .dockerignore
 ├── pyproject.toml
 └── uv.lock
 ```
@@ -148,14 +178,23 @@ cd ..
 pytest -v
 ```
 
-### Run the API & Dashboard
+### Run the Web App (FastAPI + React/Vite)
 
 **Terminal 1 — FastAPI backend** (from project root):
 ```powershell
-uvicorn api.main:app --reload
+.\.venv\Scripts\uvicorn.exe api.main:app --reload
 ```
 
-**Terminal 2 — Streamlit dashboard** (from `dashboard/`):
+**Terminal 2 — React frontend** (from `frontend/`):
+```powershell
+cd frontend
+npm install
+npm run dev
+```
+Then open `http://localhost:5173`. *(If `frontend/dist` is built, FastAPI also serves the app directly at `http://127.0.0.1:8000`.)*
+
+### Run the Legacy Streamlit Dashboard
+
 ```powershell
 cd dashboard
 streamlit run app.py
@@ -165,7 +204,7 @@ streamlit run app.py
 
 **Modeling:** Python, pandas, NumPy, scikit-learn (Gradient Boosting Regressor), TensorFlow/Keras (stacked LSTM)
 **Evaluation:** custom RMSE + PHM08 asymmetric scoring implementation, verified against reference worked examples
-**Deployment:** FastAPI (prediction endpoint with RUL-cap flagging), Streamlit (dashboard)
+**Web & Deployment:** FastAPI (inference, trajectory, explainability, batch & metrics endpoints), React + TypeScript + Vite + Tailwind CSS + ECharts, Docker, Vercel (optional split frontend)
 
 ## Engineering notes worth highlighting
 
@@ -180,4 +219,4 @@ A handful of real bugs were caught and fixed during development through delibera
 
 - Multi-run statistical reporting (mean ± std) for LSTM results, given observed run-to-run variance
 - Ablation on RUL cap value itself (e.g., 125 vs. 150) as a documented experiment rather than a fixed assumption
-- Containerization (`Dockerfile` / `docker-compose.yml`) for one-command API + dashboard deployment
+- Lightweight ONNX/TFLite model export for <512 MB free-tier cloud hosting
